@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { seed } from "@cloudflare/workers-utils/test-helpers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as details from "../../../autoconfig/details";
+import * as configCache from "../../../config-cache";
 import { clearOutputFilePath } from "../../../output";
 import {
 	getPackageManager,
 	NpmPackageManager,
 	PnpmPackageManager,
 } from "../../../package-manager";
+import { PAGES_CONFIG_CACHE_FILENAME } from "../../../pages/constants";
 import { mockConsoleMethods } from "../../helpers/mock-console";
 import { useMockIsTTY } from "../../helpers/mock-istty";
 import { runInTempDir } from "../../helpers/run-in-tmp";
@@ -198,6 +201,83 @@ describe("autoconfig details - getDetailsForAutoConfig()", () => {
 			})
 		).resolves.toMatchObject({
 			workerName: "overridden-worker-name",
+		});
+	});
+
+	describe("Pages project detection", () => {
+		it("should detect Pages project when pages_build_output_dir is set in wrangler config", async () => {
+			const result = await details.getDetailsForAutoConfig({
+				wranglerConfig: {
+					configPath: "/tmp/wrangler.toml",
+					pages_build_output_dir: "./dist",
+				} as Config,
+			});
+
+			expect(result.configured).toBe(false);
+			expect(result.framework?.id).toBe("cloudflare-pages");
+			expect(result.framework?.name).toBe("Cloudflare Pages");
+		});
+
+		it("should detect Pages project when pages.json cache file exists", async () => {
+			// Create a cache folder in the temp directory and add pages.json to it
+			const cacheFolder = join(process.cwd(), ".cache");
+			await mkdir(cacheFolder, { recursive: true });
+			await writeFile(
+				join(cacheFolder, PAGES_CONFIG_CACHE_FILENAME),
+				JSON.stringify({ account_id: "test-account" })
+			);
+
+			// Mock getCacheFolder to return our temp cache folder
+			const getCacheFolderSpy = vi
+				.spyOn(configCache, "getCacheFolder")
+				.mockReturnValue(cacheFolder);
+
+			try {
+				const result = await details.getDetailsForAutoConfig();
+
+				expect(result.framework?.id).toBe("cloudflare-pages");
+				expect(result.framework?.name).toBe("Cloudflare Pages");
+			} finally {
+				getCacheFolderSpy.mockRestore();
+			}
+		});
+
+		it("should detect Pages project when functions directory exists and no framework is detected", async () => {
+			await mkdir("functions", { recursive: true });
+			await writeFile(
+				"functions/hello.js",
+				`
+				export function onRequest(context) {
+					return new Response("Hello, world!");
+				}
+				`
+			);
+
+			const result = await details.getDetailsForAutoConfig();
+
+			expect(result.framework?.id).toBe("cloudflare-pages");
+			expect(result.framework?.name).toBe("Cloudflare Pages");
+		});
+
+		it("should not detect Pages project when functions directory exists but a framework is detected", async () => {
+			await mkdir("functions", { recursive: true });
+			await writeFile(
+				"functions/hello.js",
+				"export const myFun = () => { console.log('Hello!'); };"
+			);
+			await writeFile(
+				"package.json",
+				JSON.stringify({
+					dependencies: {
+						astro: "5",
+					},
+				})
+			);
+
+			const result = await details.getDetailsForAutoConfig();
+
+			// Should detect Astro, not Pages
+			expect(result.framework?.id).toBe("astro");
 		});
 	});
 });
