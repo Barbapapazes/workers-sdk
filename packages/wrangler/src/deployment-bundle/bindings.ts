@@ -533,11 +533,16 @@ export async function provisionBindingsFromInput(
 		}
 		logger.log();
 		// Filter bindings to only show the ones that need provisioning
-		const pendingBindingNames = new Set(pendingResources.map((r) => r.binding));
+		// Create minimal bindings for display - only include the type (not IDs/names)
+		// This matches original behavior where pending resources only show their type
 		const bindingsToProvision: StartDevWorkerInput["bindings"] = {};
-		for (const [name, binding] of Object.entries(bindings ?? {})) {
-			if (pendingBindingNames.has(name)) {
-				bindingsToProvision[name] = binding;
+		for (const resource of pendingResources) {
+			const binding = bindings?.[resource.binding];
+			if (binding) {
+				// Create a minimal binding with just the type for display
+				bindingsToProvision[resource.binding] = {
+					type: binding.type,
+				} as Binding;
 			}
 		}
 

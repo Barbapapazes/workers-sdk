@@ -21,11 +21,16 @@ import { configProviderPlugin } from "./esbuild-plugins/config-provider";
 import { getNodeJSCompatPlugins } from "./esbuild-plugins/nodejs-plugins";
 import { writeAdditionalModules } from "./find-additional-modules";
 import { noopModuleCollector } from "./module-collection";
-import type { Binding } from "../api";
 import type { MiddlewareLoader } from "./apply-middleware";
 import type { Entry } from "./entry";
 import type { ModuleCollector } from "./module-collection";
-import type { CfModule, CfModuleType, Config } from "@cloudflare/workers-utils";
+import type {
+	CfModule,
+	CfModuleType,
+	Config,
+	DurableObjectBindings,
+	WorkflowBinding,
+} from "@cloudflare/workers-utils";
 import type { NodeJSCompatMode } from "miniflare";
 
 // Taken from https://stackoverflow.com/a/3561711
@@ -108,10 +113,8 @@ export type BundleOptions = {
 	additionalModules: CfModule[];
 	// A module collector enables you to observe what modules are in the Worker.
 	moduleCollector: ModuleCollector;
-	expectedExports: (
-		| Extract<Binding, { type: "durable_object_namespace" }>
-		| Extract<Binding, { type: "workflow" }>
-	)[];
+	doBindings: DurableObjectBindings;
+	workflowBindings: WorkflowBinding[];
 	jsxFactory: string | undefined;
 	jsxFragment: string | undefined;
 	entryName: string | undefined;
@@ -148,7 +151,8 @@ export async function bundleWorker(
 		bundle,
 		moduleCollector = noopModuleCollector,
 		additionalModules = [],
-		expectedExports,
+		doBindings,
+		workflowBindings,
 		jsxFactory,
 		jsxFragment,
 		entryName,
@@ -479,12 +483,8 @@ export async function bundleWorker(
 
 	const entryPoint = getEntryPointFromMetafile(entryFile, result.metafile);
 
-	const notExportedDOs = expectedExports
-		.filter(
-			(x) =>
-				x.type === "durable_object_namespace" &&
-				!entryPoint.exports.includes(x.class_name)
-		)
+	const notExportedDOs = doBindings
+		.filter((x) => !x.script_name && !entryPoint.exports.includes(x.class_name))
 		.map((x) => x.class_name);
 	if (notExportedDOs.length) {
 		const relativePath = path.relative(process.cwd(), entryFile);
@@ -495,10 +495,8 @@ export async function bundleWorker(
 		);
 	}
 
-	const notExportedWorkflows = expectedExports
-		.filter(
-			(x) => x.type === "workflow" && !entryPoint.exports.includes(x.class_name)
-		)
+	const notExportedWorkflows = workflowBindings
+		.filter((x) => !x.script_name && !entryPoint.exports.includes(x.class_name))
 		.map((x) => x.class_name);
 	if (notExportedWorkflows.length) {
 		const relativePath = path.relative(process.cwd(), entryFile);

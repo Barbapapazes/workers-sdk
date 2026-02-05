@@ -12,10 +12,7 @@ import {
 	getWrangler1xLegacyModuleReferences,
 	noopModuleCollector,
 } from "../deployment-bundle/module-collection";
-import type {
-	BundleOptions,
-	SourceMapMetadata,
-} from "../deployment-bundle/bundle";
+import type { SourceMapMetadata } from "../deployment-bundle/bundle";
 import type { Entry } from "../deployment-bundle/entry";
 import type { CfModule, CfModuleType, Config } from "@cloudflare/workers-utils";
 import type { Metafile } from "esbuild";
@@ -52,7 +49,8 @@ export function runBuild(
 		alias,
 		noBundle,
 		findAdditionalModules,
-		expectedExports,
+		durableObjects,
+		workflows,
 		local,
 		targetConsumer,
 		testScheduled,
@@ -79,7 +77,8 @@ export function runBuild(
 		compatibilityFlags: string[] | undefined;
 		noBundle: boolean;
 		findAdditionalModules: boolean | undefined;
-		expectedExports: BundleOptions["expectedExports"];
+		durableObjects: Config["durable_objects"];
+		workflows: Config["workflows"];
 		local: boolean;
 		targetConsumer: "dev" | "deploy";
 		testScheduled: boolean;
@@ -165,7 +164,8 @@ export function runBuild(
 						nodejsCompatMode,
 						compatibilityDate,
 						compatibilityFlags,
-						expectedExports,
+						doBindings: durableObjects.bindings,
+						workflowBindings: workflows,
 						alias,
 						define,
 						targetConsumer,

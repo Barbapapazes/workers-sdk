@@ -727,15 +727,6 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			};
 		}
 
-		const expectedExports = [
-			...extractBindingsOfType("durable_object_namespace", bindings).filter(
-				(ns) => !ns.script_name
-			),
-			...extractBindingsOfType("workflow", bindings).filter(
-				(ns) => !ns.script_name
-			),
-		];
-
 		const {
 			modules,
 			dependencies,
@@ -757,7 +748,8 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 						bundle: true,
 						additionalModules: [],
 						moduleCollector,
-						expectedExports,
+						doBindings: config.durable_objects.bindings,
+						workflowBindings: config.workflows ?? [],
 						jsxFactory,
 						jsxFragment,
 						tsconfig: props.tsconfig ?? config.tsconfig,

@@ -90,16 +90,14 @@ export class BundlerController extends Controller {
 				rules: config.build.moduleRules,
 			});
 
-			const expectedExports = [
-				...extractBindingsOfType(
-					"durable_object_namespace",
-					config.bindings
-				).filter((ns) => !ns.script_name),
-				...extractBindingsOfType("workflow", config.bindings).filter(
-					(ns) => !ns.script_name
-				),
-			];
-
+			const doBindings = extractBindingsOfType(
+				"durable_object_namespace",
+				config.bindings
+			);
+			const workflowBindings = extractBindingsOfType(
+				"workflow",
+				config.bindings
+			);
 			const bundleResult: Omit<BundleResult, "stop"> = !config.build?.bundle
 				? await noBundleWorker(
 						entry,
@@ -111,7 +109,8 @@ export class BundlerController extends Controller {
 						bundle: true,
 						additionalModules: [],
 						moduleCollector,
-						expectedExports,
+						doBindings,
+						workflowBindings,
 						jsxFactory: config.build.jsxFactory,
 						jsxFragment: config.build.jsxFactory,
 						tsconfig: config.build.tsconfig,
@@ -238,15 +237,13 @@ export class BundlerController extends Controller {
 			name: config.name,
 		};
 
-		const expectedExports = [
-			...extractBindingsOfType(
+		const durableObjects = {
+			bindings: extractBindingsOfType(
 				"durable_object_namespace",
 				config.bindings
-			).filter((ns) => !ns.script_name),
-			...extractBindingsOfType("workflow", config.bindings).filter(
-				(ns) => !ns.script_name
 			),
-		];
+		};
+		const workflows = extractBindingsOfType("workflow", config.bindings);
 
 		this.#bundlerCleanup = runBuild(
 			{
@@ -267,7 +264,8 @@ export class BundlerController extends Controller {
 				alias: config.build.alias,
 				noBundle: !config.build?.bundle,
 				findAdditionalModules: config.build?.findAdditionalModules,
-				expectedExports,
+				durableObjects,
+				workflows,
 				local: !config.dev?.remote,
 				// startDevWorker only applies to "dev"
 				targetConsumer: "dev",

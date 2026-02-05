@@ -479,8 +479,14 @@ function getBindingOutputEntry(
 					: undefined;
 		mode = standardRemoteMode();
 	} else if (binding.type === "d1") {
-		// Note: preview_database_id is already resolved into database_id during binding conversion
-		value = binding.database_id;
+		// Display priority: preview_database_id, then database_name, then database_id
+		// This matches the original behavior for user-friendly display
+		value =
+			typeof binding.database_id === "symbol"
+				? binding.database_id
+				: binding.preview_database_id ??
+					binding.database_name ??
+					binding.database_id;
 		mode = standardRemoteMode();
 	} else if (binding.type === "hyperdrive") {
 		value = binding.id;

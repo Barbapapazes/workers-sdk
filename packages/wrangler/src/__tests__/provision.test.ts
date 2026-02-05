@@ -877,8 +877,8 @@ describe("resource provisioning", () => {
 
 				Worker Startup Time: 100 ms
 				Your Worker has access to the following bindings:
-				Binding                 Resource
-				env.D1 (new-d1-id)      D1 Database
+				Binding                         Resource
+				env.D1 (prefilled-d1-name)      D1 Database
 
 				Uploaded test-name (TIMINGS)
 				Deployed test-name triggers (TIMINGS)
@@ -1006,8 +1006,8 @@ describe("resource provisioning", () => {
 
 				Worker Startup Time: 100 ms
 				Your Worker has access to the following bindings:
-				Binding                 Resource
-				env.D1 (new-d1-id)      D1 Database
+				Binding                   Resource
+				env.D1 (new-d1-name)      D1 Database
 
 				Uploaded test-name (TIMINGS)
 				Deployed test-name triggers (TIMINGS)
@@ -1071,8 +1071,8 @@ describe("resource provisioning", () => {
 				Total Upload: xx KiB / gzip: xx KiB
 
 				Experimental: The following bindings need to be provisioned:
-				Binding                                  Resource
-				env.BUCKET (prefilled-r2-name (eu))      R2 Bucket
+				Binding            Resource
+				env.BUCKET         R2 Bucket
 
 
 				Provisioning BUCKET (R2 Bucket)...
@@ -1191,8 +1191,8 @@ describe("resource provisioning", () => {
 				Total Upload: xx KiB / gzip: xx KiB
 				Worker Startup Time: 100 ms
 				Your Worker has access to the following bindings:
-				Binding                           Resource
-				env.DB_NAME (existing-d1-id)      D1 Database
+				Binding                             Resource
+				env.DB_NAME (existing-db-name)      D1 Database
 
 				Uploaded test-name (TIMINGS)
 				Deployed test-name triggers (TIMINGS)
@@ -1267,8 +1267,8 @@ describe("resource provisioning", () => {
 				Total Upload: xx KiB / gzip: xx KiB
 
 				Experimental: The following bindings need to be provisioned:
-				Binding                                     Resource
-				env.BUCKET (existing-bucket-name (eu))      R2 Bucket
+				Binding            Resource
+				env.BUCKET         R2 Bucket
 
 
 				Provisioning BUCKET (R2 Bucket)...
