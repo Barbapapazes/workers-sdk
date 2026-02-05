@@ -74,44 +74,6 @@ export interface ConvertBindingsOptions {
 }
 
 /**
- * Binding options that can be provided to convertConfigBindingsToStartWorkerBindings.
- * This is a subset of Config focused only on binding-related fields.
- */
-export interface ConfigBindingOptions {
-	vars?: Config["vars"];
-	kv_namespaces?: Config["kv_namespaces"];
-	send_email?: Config["send_email"];
-	durable_objects?: Config["durable_objects"];
-	workflows?: Config["workflows"];
-	queues?: Config["queues"];
-	r2_buckets?: Config["r2_buckets"];
-	d1_databases?: Config["d1_databases"];
-	vectorize?: Config["vectorize"];
-	hyperdrive?: Config["hyperdrive"];
-	secrets_store_secrets?: Config["secrets_store_secrets"];
-	unsafe_hello_world?: Config["unsafe_hello_world"];
-	ratelimits?: Config["ratelimits"];
-	vpc_services?: Config["vpc_services"];
-	services?: Config["services"];
-	analytics_engine_datasets?: Config["analytics_engine_datasets"];
-	dispatch_namespaces?: Config["dispatch_namespaces"];
-	mtls_certificates?: Config["mtls_certificates"];
-	pipelines?: Config["pipelines"];
-	worker_loaders?: Config["worker_loaders"];
-	logfwdr?: Config["logfwdr"];
-	wasm_modules?: Config["wasm_modules"];
-	browser?: Config["browser"];
-	ai?: Config["ai"];
-	images?: Config["images"];
-	media?: Config["media"];
-	version_metadata?: Config["version_metadata"];
-	assets?: Config["assets"];
-	text_blobs?: Config["text_blobs"];
-	data_blobs?: Config["data_blobs"];
-	unsafe?: Config["unsafe"];
-}
-
-/**
  * Convert Config bindings to the flat StartDevWorkerInput["bindings"] format.
  * This is the canonical conversion function - other converters should delegate to this.
  */
@@ -123,7 +85,7 @@ export function convertConfigToBindings(
 	const output: NonNullable<StartDevWorkerOptions["bindings"]> = {};
 
 	type Entries<T> = { [K in keyof T]: [K, T[K]] }[keyof T][];
-	type ConfigIterable = Entries<Required<ConfigBindingOptions>>;
+	type ConfigIterable = Entries<Required<Config>>;
 	const configIterable = Object.entries(config) as ConfigIterable;
 
 	for (const [type, info] of configIterable) {
@@ -367,9 +329,9 @@ export function convertConfigToBindings(
 }
 
 export function convertConfigBindingsToStartWorkerBindings(
-	configBindings: ConfigBindingOptions
+	configBindings: Config
 ): StartDevWorkerOptions["bindings"] {
-	return convertConfigToBindings(configBindings as unknown as Config, {
+	return convertConfigToBindings(configBindings, {
 		usePreviewIds: true,
 	});
 }
