@@ -57,6 +57,14 @@ export function unwrapHook<
 	return typeof hook === "function" ? hook(...args) : hook;
 }
 
+export function convertConfigBindingsToStartWorkerBindings(
+	configBindings: Config
+): StartDevWorkerOptions["bindings"] {
+	return convertConfigToBindings(configBindings, {
+		usePreviewIds: true,
+	});
+}
+
 /**
  * Options for convertConfigToBindings
  */
@@ -328,14 +336,6 @@ export function convertConfigToBindings(
 	return output;
 }
 
-export function convertConfigBindingsToStartWorkerBindings(
-	configBindings: Config
-): StartDevWorkerOptions["bindings"] {
-	return convertConfigToBindings(configBindings, {
-		usePreviewIds: true,
-	});
-}
-
 /**
  * Bindings that can be passed via the StartDevOptions (CLI/API) interface.
  * This is a subset of all binding types, focused on the most commonly used ones.
@@ -398,120 +398,27 @@ export interface StartDevOptionsBindings {
 export function convertStartDevOptionsToBindings(
 	inputBindings: StartDevOptionsBindings
 ): StartDevWorkerOptions["bindings"] {
-	const output: StartDevWorkerOptions["bindings"] = {};
+	// Map StartDevOptionsBindings field names to Config field names
+	const configBindings: Partial<Config> = {
+		vars: inputBindings.vars,
+		kv_namespaces: inputBindings.kv,
+		durable_objects: inputBindings.durableObjects
+			? { bindings: inputBindings.durableObjects }
+			: undefined,
+		services: inputBindings.services,
+		r2_buckets: inputBindings.r2,
+		ai: inputBindings.ai,
+		version_metadata: inputBindings.version_metadata,
+		d1_databases: inputBindings.d1Databases,
+		queues: inputBindings.queueProducers
+			? { producers: inputBindings.queueProducers }
+			: undefined,
+		hyperdrive: inputBindings.hyperdrive,
+	};
 
-	type Entries<T> = { [K in keyof T]: [K, T[K]] }[keyof T][];
-	type BindingsIterable = Entries<Required<typeof inputBindings>>;
-	const bindingsIterable = Object.entries(inputBindings) as BindingsIterable;
-
-	for (const [type, info] of bindingsIterable) {
-		if (info === undefined) {
-			continue;
-		}
-
-		switch (type) {
-			case "vars": {
-				for (const [key, value] of Object.entries(info)) {
-					if (typeof value === "string") {
-						output[key] = { type: "plain_text", value };
-					} else {
-						output[key] = { type: "json", value };
-					}
-				}
-				break;
-			}
-			case "kv": {
-				for (const kv of info) {
-					output[kv.binding] = {
-						type: "kv_namespace",
-						id: kv.id,
-					};
-				}
-				break;
-			}
-			case "durableObjects": {
-				for (const durable of info) {
-					output[durable.name] = {
-						type: "durable_object_namespace",
-						class_name: durable.class_name,
-						script_name: durable.script_name,
-						environment: durable.environment,
-					};
-				}
-				break;
-			}
-			case "services": {
-				for (const service of info) {
-					output[service.binding] = {
-						type: "service",
-						service: service.service,
-						environment: service.environment,
-						entrypoint: service.entrypoint,
-					};
-				}
-				break;
-			}
-			case "r2": {
-				for (const r2 of info) {
-					output[r2.binding] = {
-						type: "r2_bucket",
-						bucket_name: r2.bucket_name,
-						jurisdiction: r2.jurisdiction,
-					};
-				}
-				break;
-			}
-			case "ai": {
-				output[info.binding] = {
-					type: "ai",
-				};
-				break;
-			}
-			case "version_metadata": {
-				output[info.binding] = {
-					type: "version_metadata",
-				};
-				break;
-			}
-			case "d1Databases": {
-				for (const d1 of info) {
-					output[d1.binding] = {
-						type: "d1",
-						database_id: d1.database_id,
-						database_name: d1.database_name,
-						database_internal_env: d1.database_internal_env,
-					};
-				}
-				break;
-			}
-			case "queueProducers": {
-				for (const queue of info) {
-					output[queue.binding] = {
-						type: "queue",
-						queue_name: queue.queue,
-						...(queue.delivery_delay !== undefined && {
-							delivery_delay: queue.delivery_delay,
-						}),
-					};
-				}
-				break;
-			}
-			case "hyperdrive": {
-				for (const hd of info) {
-					output[hd.binding] = {
-						type: "hyperdrive",
-						id: hd.id,
-						localConnectionString: hd.localConnectionString,
-					};
-				}
-				break;
-			}
-			default:
-				assertNever(type);
-		}
-	}
-
-	return output;
+	return convertConfigToBindings(configBindings as unknown as Config, {
+		usePreviewIds: true,
+	});
 }
 
 export function extractBindingsOfType<

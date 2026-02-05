@@ -4,7 +4,6 @@ export type {
 	RawDevConfig,
 	ConfigFields,
 	RawEnvironment,
-	ConfigBindingOptions,
 } from "./config";
 export * from "./config/environment";
 export {
