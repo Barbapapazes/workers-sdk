@@ -143,10 +143,10 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "kv_namespaces": {
-				for (const { binding, preview_id, id, ...rest } of value) {
+				for (const { binding, preview_id, id, ...x } of value) {
 					output[binding] = {
 						type: "kv_namespace",
-						...rest,
+						...x,
 						id: usePreviewIds ? preview_id ?? id : id,
 					};
 				}
@@ -154,148 +154,8 @@ export function convertConfigToBindings(
 			}
 			case "send_email": {
 				if (pages) break;
-				for (const { name, ...rest } of value) {
-					output[name] = { type: "send_email", ...rest };
-				}
-				break;
-			}
-			case "durable_objects": {
-				for (const { name, ...rest } of value.bindings ?? []) {
-					output[name] = { type: "durable_object_namespace", ...rest };
-				}
-				break;
-			}
-			case "workflows": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "workflow", ...rest };
-				}
-				break;
-			}
-			case "queues": {
-				for (const producer of value.producers ?? []) {
-					output[producer.binding] = {
-						type: "queue",
-						queue_name: producer.queue,
-						...(producer.delivery_delay !== undefined && {
-							delivery_delay: producer.delivery_delay,
-						}),
-					};
-				}
-				break;
-			}
-			case "r2_buckets": {
-				for (const {
-					binding,
-					preview_bucket_name,
-					bucket_name,
-					...rest
-				} of value) {
-					output[binding] = {
-						type: "r2_bucket",
-						...rest,
-						bucket_name: usePreviewIds
-							? preview_bucket_name ?? bucket_name
-							: bucket_name,
-					};
-				}
-				break;
-			}
-			case "d1_databases": {
-				for (const {
-					binding,
-					preview_database_id,
-					database_id,
-					...rest
-				} of value) {
-					output[binding] = {
-						type: "d1",
-						...rest,
-						database_id: usePreviewIds
-							? preview_database_id ?? database_id
-							: database_id,
-					};
-				}
-				break;
-			}
-			case "vectorize": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "vectorize", ...rest };
-				}
-				break;
-			}
-			case "hyperdrive": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "hyperdrive", ...rest };
-				}
-				break;
-			}
-			case "secrets_store_secrets": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "secrets_store_secret", ...rest };
-				}
-				break;
-			}
-			case "unsafe_hello_world": {
-				if (pages) break;
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "unsafe_hello_world", ...rest };
-				}
-				break;
-			}
-			case "ratelimits": {
-				for (const { name, ...rest } of value) {
-					output[name] = { type: "ratelimit", ...rest };
-				}
-				break;
-			}
-			case "vpc_services": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "vpc_service", ...rest };
-				}
-				break;
-			}
-			case "services": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "service", ...rest };
-				}
-				break;
-			}
-			case "analytics_engine_datasets": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "analytics_engine", ...rest };
-				}
-				break;
-			}
-			case "dispatch_namespaces": {
-				if (pages) break;
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "dispatch_namespace", ...rest };
-				}
-				break;
-			}
-			case "mtls_certificates": {
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "mtls_certificate", ...rest };
-				}
-				break;
-			}
-			case "pipelines": {
-				if (pages) break;
-				for (const { binding, ...rest } of value) {
-					output[binding] = { type: "pipeline", ...rest };
-				}
-				break;
-			}
-			case "worker_loaders": {
-				for (const { binding } of value) {
-					output[binding] = { type: "worker_loader" };
-				}
-				break;
-			}
-			case "logfwdr": {
-				if (pages) break;
-				for (const { name, ...rest } of value.bindings ?? []) {
-					output[name] = { type: "logfwdr", ...rest };
+				for (const { name, ...x } of value) {
+					output[name] = { type: "send_email", ...x };
 				}
 				break;
 			}
@@ -307,37 +167,6 @@ export function convertConfigToBindings(
 					} else {
 						output[k] = { type: "wasm_module", source: { contents: v } };
 					}
-				}
-				break;
-			}
-			case "browser": {
-				const { binding, ...rest } = value;
-				output[binding] = { type: "browser", ...rest };
-				break;
-			}
-			case "ai": {
-				const { binding, ...rest } = value;
-				output[binding] = { type: "ai", ...rest };
-				break;
-			}
-			case "images": {
-				const { binding, ...rest } = value;
-				output[binding] = { type: "images", ...rest };
-				break;
-			}
-			case "media": {
-				const { binding, ...rest } = value;
-				output[binding] = { type: "media", ...rest };
-				break;
-			}
-			case "version_metadata": {
-				output[value.binding] = { type: "version_metadata" };
-				break;
-			}
-			case "assets": {
-				if (pages) break;
-				if (value.binding) {
-					output[value.binding] = { type: "assets" };
 				}
 				break;
 			}
@@ -359,12 +188,183 @@ export function convertConfigToBindings(
 				}
 				break;
 			}
+			case "browser": {
+				const { binding, ...x } = value;
+				output[binding] = { type: "browser", ...x };
+				break;
+			}
+			case "durable_objects": {
+				for (const { name, ...x } of value.bindings ?? []) {
+					output[name] = { type: "durable_object_namespace", ...x };
+				}
+				break;
+			}
+			case "workflows": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "workflow", ...x };
+				}
+				break;
+			}
+			case "queues": {
+				for (const producer of value.producers ?? []) {
+					output[producer.binding] = {
+						type: "queue",
+						queue_name: producer.queue,
+						...(producer.delivery_delay !== undefined && {
+							delivery_delay: producer.delivery_delay,
+						}),
+					};
+				}
+				break;
+			}
+			case "r2_buckets": {
+				for (const {
+					binding,
+					preview_bucket_name,
+					bucket_name,
+					...x
+				} of value) {
+					output[binding] = {
+						type: "r2_bucket",
+						...x,
+						bucket_name: usePreviewIds
+							? preview_bucket_name ?? bucket_name
+							: bucket_name,
+					};
+				}
+				break;
+			}
+			case "d1_databases": {
+				for (const {
+					binding,
+					preview_database_id,
+					database_id,
+					...x
+				} of value) {
+					output[binding] = {
+						type: "d1",
+						...x,
+						database_id: usePreviewIds
+							? preview_database_id ?? database_id
+							: database_id,
+					};
+				}
+				break;
+			}
+			case "services": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "service", ...x };
+				}
+				break;
+			}
+			case "analytics_engine_datasets": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "analytics_engine", ...x };
+				}
+				break;
+			}
+			case "dispatch_namespaces": {
+				if (pages) break;
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "dispatch_namespace", ...x };
+				}
+				break;
+			}
+			case "mtls_certificates": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "mtls_certificate", ...x };
+				}
+				break;
+			}
+			case "logfwdr": {
+				if (pages) break;
+				for (const { name, ...x } of value.bindings ?? []) {
+					output[name] = { type: "logfwdr", ...x };
+				}
+				break;
+			}
+			case "ai": {
+				const { binding, ...x } = value;
+				output[binding] = { type: "ai", ...x };
+				break;
+			}
+			case "images": {
+				const { binding, ...x } = value;
+				output[binding] = { type: "images", ...x };
+				break;
+			}
+			case "version_metadata": {
+				const { binding, ...x } = value;
+				output[binding] = { type: "version_metadata", ...x };
+				break;
+			}
+			case "hyperdrive": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "hyperdrive", ...x };
+				}
+				break;
+			}
+			case "vectorize": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "vectorize", ...x };
+				}
+				break;
+			}
 			case "unsafe": {
 				if (pages) break;
-				for (const unsafe of value.bindings ?? []) {
-					const { type: unsafeType, name, ...data } = unsafe;
-					output[name] = { type: `unsafe_${unsafeType}`, ...data } as Binding;
+				for (const { type: unsafeType, name, ...x } of value.bindings ?? []) {
+					output[name] = { type: `unsafe_${unsafeType}`, ...x } as Binding;
 				}
+				break;
+			}
+			case "assets": {
+				if (pages) break;
+				if (value.binding) {
+					output[value.binding] = { type: "assets" };
+				}
+				break;
+			}
+			case "pipelines": {
+				if (pages) break;
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "pipeline", ...x };
+				}
+				break;
+			}
+			case "secrets_store_secrets": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "secrets_store_secret", ...x };
+				}
+				break;
+			}
+			case "unsafe_hello_world": {
+				if (pages) break;
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "unsafe_hello_world", ...x };
+				}
+				break;
+			}
+			case "ratelimits": {
+				for (const { name, ...x } of value) {
+					output[name] = { type: "ratelimit", ...x };
+				}
+				break;
+			}
+			case "worker_loaders": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "worker_loader", ...x };
+				}
+				break;
+			}
+			case "vpc_services": {
+				for (const { binding, ...x } of value) {
+					output[binding] = { type: "vpc_service", ...x };
+				}
+				break;
+			}
+			case "media": {
+				const { binding, ...x } = value;
+				output[binding] = { type: "media", ...x };
 				break;
 			}
 			default:
