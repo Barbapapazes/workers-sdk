@@ -133,11 +133,11 @@ export function convertConfigToBindings(
 
 		switch (type) {
 			case "vars": {
-				for (const [k, v] of Object.entries(info)) {
-					if (typeof v === "string") {
-						output[k] = { type: "plain_text", value: v };
+				for (const [key, value] of Object.entries(info)) {
+					if (typeof value === "string") {
+						output[key] = { type: "plain_text", value };
 					} else {
-						output[k] = { type: "json", value: v };
+						output[key] = { type: "json", value };
 					}
 				}
 				break;
@@ -161,29 +161,29 @@ export function convertConfigToBindings(
 			}
 			case "wasm_modules": {
 				if (pages) break;
-				for (const [k, v] of Object.entries(info)) {
-					if (typeof v === "string") {
-						output[k] = { type: "wasm_module", source: { path: v } };
+				for (const [key, value] of Object.entries(info)) {
+					if (typeof value === "string") {
+						output[key] = { type: "wasm_module", source: { path: value } };
 					} else {
-						output[k] = { type: "wasm_module", source: { contents: v } };
+						output[key] = { type: "wasm_module", source: { contents: value } };
 					}
 				}
 				break;
 			}
 			case "text_blobs": {
 				if (pages) break;
-				for (const [k, v] of Object.entries(info)) {
-					output[k] = { type: "text_blob", source: { path: v } };
+				for (const [key, value] of Object.entries(info)) {
+					output[key] = { type: "text_blob", source: { path: value } };
 				}
 				break;
 			}
 			case "data_blobs": {
 				if (pages) break;
-				for (const [k, v] of Object.entries(info)) {
-					if (typeof v === "string") {
-						output[k] = { type: "data_blob", source: { path: v } };
+				for (const [key, value] of Object.entries(info)) {
+					if (typeof value === "string") {
+						output[key] = { type: "data_blob", source: { path: value } };
 					} else {
-						output[k] = { type: "data_blob", source: { contents: v } };
+						output[key] = { type: "data_blob", source: { contents: value } };
 					}
 				}
 				break;
