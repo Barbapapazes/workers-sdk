@@ -143,11 +143,11 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "kv_namespaces": {
-				for (const { binding, preview_id, id, ...x } of info) {
+				for (const { binding, ...x } of info) {
 					output[binding] = {
 						type: "kv_namespace",
 						...x,
-						id: usePreviewIds ? preview_id ?? id : id,
+						id: usePreviewIds ? x.preview_id ?? x.id : x.id,
 					};
 				}
 				break;
@@ -218,35 +218,25 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "r2_buckets": {
-				for (const {
-					binding,
-					preview_bucket_name,
-					bucket_name,
-					...x
-				} of info) {
+				for (const { binding, ...x } of info) {
 					output[binding] = {
 						type: "r2_bucket",
 						...x,
 						bucket_name: usePreviewIds
-							? preview_bucket_name ?? bucket_name
-							: bucket_name,
+							? x.preview_bucket_name ?? x.bucket_name
+							: x.bucket_name,
 					};
 				}
 				break;
 			}
 			case "d1_databases": {
-				for (const {
-					binding,
-					preview_database_id,
-					database_id,
-					...x
-				} of info) {
+				for (const { binding, ...x } of info) {
 					output[binding] = {
 						type: "d1",
 						...x,
 						database_id: usePreviewIds
-							? preview_database_id ?? database_id
-							: database_id,
+							? x.preview_database_id ?? x.database_id
+							: x.database_id,
 					};
 				}
 				break;
