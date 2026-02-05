@@ -16,7 +16,6 @@ import {
 } from "@cloudflare/workers-utils";
 import PQueue from "p-queue";
 import { Response } from "undici";
-import { extractBindingsOfType } from "../api/startDevWorker/utils";
 import { syncAssets } from "../assets";
 import { fetchListResult, fetchResult } from "../cfetch";
 import { buildContainer } from "../containers/build";

@@ -6,7 +6,6 @@ import {
 	UserError,
 } from "@cloudflare/workers-utils";
 import { isWebContainer } from "@webcontainer/env";
-import chalk from "chalk";
 import { convertConfigToBindings } from "./api/startDevWorker/utils";
 import { getAssetsOptions } from "./assets";
 import { createCommand } from "./core/create-command";

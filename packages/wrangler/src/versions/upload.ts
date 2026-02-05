@@ -15,7 +15,6 @@ import {
 	UserError,
 } from "@cloudflare/workers-utils";
 import { Response } from "undici";
-import { extractBindingsOfType } from "../api/startDevWorker/utils";
 import {
 	getAssetsOptions,
 	syncAssets,
