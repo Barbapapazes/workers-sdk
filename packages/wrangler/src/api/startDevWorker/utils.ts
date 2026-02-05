@@ -126,14 +126,14 @@ export function convertConfigToBindings(
 	type ConfigIterable = Entries<Required<ConfigBindingOptions>>;
 	const configIterable = Object.entries(config) as ConfigIterable;
 
-	for (const [key, value] of configIterable) {
-		if (value === undefined) {
+	for (const [type, info] of configIterable) {
+		if (info === undefined) {
 			continue;
 		}
 
-		switch (key) {
+		switch (type) {
 			case "vars": {
-				for (const [k, v] of Object.entries(value)) {
+				for (const [k, v] of Object.entries(info)) {
 					if (typeof v === "string") {
 						output[k] = { type: "plain_text", value: v };
 					} else {
@@ -143,7 +143,7 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "kv_namespaces": {
-				for (const { binding, preview_id, id, ...x } of value) {
+				for (const { binding, preview_id, id, ...x } of info) {
 					output[binding] = {
 						type: "kv_namespace",
 						...x,
@@ -154,14 +154,14 @@ export function convertConfigToBindings(
 			}
 			case "send_email": {
 				if (pages) break;
-				for (const { name, ...x } of value) {
+				for (const { name, ...x } of info) {
 					output[name] = { type: "send_email", ...x };
 				}
 				break;
 			}
 			case "wasm_modules": {
 				if (pages) break;
-				for (const [k, v] of Object.entries(value)) {
+				for (const [k, v] of Object.entries(info)) {
 					if (typeof v === "string") {
 						output[k] = { type: "wasm_module", source: { path: v } };
 					} else {
@@ -172,14 +172,14 @@ export function convertConfigToBindings(
 			}
 			case "text_blobs": {
 				if (pages) break;
-				for (const [k, v] of Object.entries(value)) {
+				for (const [k, v] of Object.entries(info)) {
 					output[k] = { type: "text_blob", source: { path: v } };
 				}
 				break;
 			}
 			case "data_blobs": {
 				if (pages) break;
-				for (const [k, v] of Object.entries(value)) {
+				for (const [k, v] of Object.entries(info)) {
 					if (typeof v === "string") {
 						output[k] = { type: "data_blob", source: { path: v } };
 					} else {
@@ -189,24 +189,24 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "browser": {
-				const { binding, ...x } = value;
+				const { binding, ...x } = info;
 				output[binding] = { type: "browser", ...x };
 				break;
 			}
 			case "durable_objects": {
-				for (const { name, ...x } of value.bindings ?? []) {
+				for (const { name, ...x } of info.bindings ?? []) {
 					output[name] = { type: "durable_object_namespace", ...x };
 				}
 				break;
 			}
 			case "workflows": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "workflow", ...x };
 				}
 				break;
 			}
 			case "queues": {
-				for (const producer of value.producers ?? []) {
+				for (const producer of info.producers ?? []) {
 					output[producer.binding] = {
 						type: "queue",
 						queue_name: producer.queue,
@@ -223,7 +223,7 @@ export function convertConfigToBindings(
 					preview_bucket_name,
 					bucket_name,
 					...x
-				} of value) {
+				} of info) {
 					output[binding] = {
 						type: "r2_bucket",
 						...x,
@@ -240,7 +240,7 @@ export function convertConfigToBindings(
 					preview_database_id,
 					database_id,
 					...x
-				} of value) {
+				} of info) {
 					output[binding] = {
 						type: "d1",
 						...x,
@@ -252,118 +252,118 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "services": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "service", ...x };
 				}
 				break;
 			}
 			case "analytics_engine_datasets": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "analytics_engine", ...x };
 				}
 				break;
 			}
 			case "dispatch_namespaces": {
 				if (pages) break;
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "dispatch_namespace", ...x };
 				}
 				break;
 			}
 			case "mtls_certificates": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "mtls_certificate", ...x };
 				}
 				break;
 			}
 			case "logfwdr": {
 				if (pages) break;
-				for (const { name, ...x } of value.bindings ?? []) {
+				for (const { name, ...x } of info.bindings ?? []) {
 					output[name] = { type: "logfwdr", ...x };
 				}
 				break;
 			}
 			case "ai": {
-				const { binding, ...x } = value;
+				const { binding, ...x } = info;
 				output[binding] = { type: "ai", ...x };
 				break;
 			}
 			case "images": {
-				const { binding, ...x } = value;
+				const { binding, ...x } = info;
 				output[binding] = { type: "images", ...x };
 				break;
 			}
 			case "version_metadata": {
-				const { binding, ...x } = value;
+				const { binding, ...x } = info;
 				output[binding] = { type: "version_metadata", ...x };
 				break;
 			}
 			case "hyperdrive": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "hyperdrive", ...x };
 				}
 				break;
 			}
 			case "vectorize": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "vectorize", ...x };
 				}
 				break;
 			}
 			case "unsafe": {
 				if (pages) break;
-				for (const { type: unsafeType, name, ...x } of value.bindings ?? []) {
+				for (const { type: unsafeType, name, ...x } of info.bindings ?? []) {
 					output[name] = { type: `unsafe_${unsafeType}`, ...x } as Binding;
 				}
 				break;
 			}
 			case "assets": {
 				if (pages) break;
-				if (value.binding) {
-					output[value.binding] = { type: "assets" };
+				if (info.binding) {
+					output[info.binding] = { type: "assets" };
 				}
 				break;
 			}
 			case "pipelines": {
 				if (pages) break;
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "pipeline", ...x };
 				}
 				break;
 			}
 			case "secrets_store_secrets": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "secrets_store_secret", ...x };
 				}
 				break;
 			}
 			case "unsafe_hello_world": {
 				if (pages) break;
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "unsafe_hello_world", ...x };
 				}
 				break;
 			}
 			case "ratelimits": {
-				for (const { name, ...x } of value) {
+				for (const { name, ...x } of info) {
 					output[name] = { type: "ratelimit", ...x };
 				}
 				break;
 			}
 			case "worker_loaders": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "worker_loader", ...x };
 				}
 				break;
 			}
 			case "vpc_services": {
-				for (const { binding, ...x } of value) {
+				for (const { binding, ...x } of info) {
 					output[binding] = { type: "vpc_service", ...x };
 				}
 				break;
 			}
 			case "media": {
-				const { binding, ...x } = value;
+				const { binding, ...x } = info;
 				output[binding] = { type: "media", ...x };
 				break;
 			}
