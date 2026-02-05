@@ -41,10 +41,7 @@ import type {
 	WorkerOptions,
 } from "miniflare";
 
-export {
-	getVarsForDev as unstable_getVarsForDev,
-	type VarBinding as unstable_VarBinding,
-} from "../../../dev/dev-vars";
+export { getVarsForDev as unstable_getVarsForDev } from "../../../dev/dev-vars";
 export { readConfig as unstable_readConfig };
 export { getDurableObjectClassNameToUseSQLiteMap as unstable_getDurableObjectClassNameToUseSQLiteMap };
 
