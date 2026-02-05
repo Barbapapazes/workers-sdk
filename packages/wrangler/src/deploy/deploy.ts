@@ -654,6 +654,81 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 		const uploadSourceMaps =
 			props.uploadSourceMaps ?? config.upload_source_maps;
 
+		const {
+			modules,
+			dependencies,
+			resolvedEntryPointPath,
+			bundleType,
+			...bundle
+		} = props.noBundle
+			? await noBundleWorker(
+					props.entry,
+					props.rules,
+					props.outDir,
+					config.python_modules.exclude
+				)
+			: await bundleWorker(
+					props.entry,
+					typeof destination === "string" ? destination : destination.path,
+					{
+						metafile: props.metafile,
+						bundle: true,
+						additionalModules: [],
+						moduleCollector,
+						doBindings: config.durable_objects.bindings,
+						workflowBindings: config.workflows ?? [],
+						jsxFactory,
+						jsxFragment,
+						tsconfig: props.tsconfig ?? config.tsconfig,
+						minify,
+						keepNames: config.keep_names ?? true,
+						sourcemap: uploadSourceMaps,
+						nodejsCompatMode,
+						compatibilityDate,
+						compatibilityFlags,
+						define: { ...config.define, ...props.defines },
+						checkFetch: false,
+						alias: config.alias,
+						// We want to know if the build is for development or publishing
+						// This could potentially cause issues as we no longer have identical behaviour between dev and deploy?
+						targetConsumer: "deploy",
+						local: false,
+						projectRoot: props.projectRoot,
+						defineNavigatorUserAgent: isNavigatorDefined(
+							compatibilityDate,
+							compatibilityFlags
+						),
+						plugins: [logBuildOutput(nodejsCompatMode)],
+
+						// Pages specific options used by wrangler pages commands
+						entryName: undefined,
+						inject: undefined,
+						isOutfile: undefined,
+						external: undefined,
+
+						// These options are dev-only
+						testScheduled: undefined,
+						watch: undefined,
+					}
+				);
+
+		// Add modules to dependencies for size warning
+		for (const module of modules) {
+			const modulePath =
+				module.filePath === undefined
+					? module.name
+					: path.relative("", module.filePath);
+			const bytesInOutput =
+				typeof module.content === "string"
+					? Buffer.byteLength(module.content)
+					: module.content.byteLength;
+			dependencies[modulePath] = { bytesInOutput };
+		}
+
+		const content = readFileSync(resolvedEntryPointPath, {
+			encoding: "utf-8",
+		});
+
 		// durable object migrations
 		const migrations = !props.dryRun
 			? await getMigrationsToUpload(scriptName, {
@@ -726,77 +801,6 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			};
 		}
 
-		const {
-			modules,
-			dependencies,
-			resolvedEntryPointPath,
-			bundleType,
-			...bundle
-		} = props.noBundle
-			? await noBundleWorker(
-					props.entry,
-					props.rules,
-					props.outDir,
-					config.python_modules.exclude
-				)
-			: await bundleWorker(
-					props.entry,
-					typeof destination === "string" ? destination : destination.path,
-					{
-						metafile: props.metafile,
-						bundle: true,
-						additionalModules: [],
-						moduleCollector,
-						doBindings: config.durable_objects.bindings,
-						workflowBindings: config.workflows ?? [],
-						jsxFactory,
-						jsxFragment,
-						tsconfig: props.tsconfig ?? config.tsconfig,
-						minify,
-						keepNames: config.keep_names ?? true,
-						sourcemap: uploadSourceMaps,
-						nodejsCompatMode,
-						compatibilityDate,
-						compatibilityFlags,
-						define: { ...config.define, ...props.defines },
-						checkFetch: false,
-						alias: config.alias,
-						// We want to know if the build is for development or publishing
-						// This could potentially cause issues as we no longer have identical behaviour between dev and deploy?
-						targetConsumer: "deploy",
-						local: false,
-						projectRoot: props.projectRoot,
-						defineNavigatorUserAgent: isNavigatorDefined(
-							compatibilityDate,
-							compatibilityFlags
-						),
-						plugins: [logBuildOutput(nodejsCompatMode)],
-
-						// Pages specific options used by wrangler pages commands
-						entryName: undefined,
-						inject: undefined,
-						isOutfile: undefined,
-						external: undefined,
-
-						// These options are dev-only
-						testScheduled: undefined,
-						watch: undefined,
-					}
-				);
-
-		// Add modules to dependencies for size warning
-		for (const module of modules) {
-			const modulePath =
-				module.filePath === undefined
-					? module.name
-					: path.relative("", module.filePath);
-			const bytesInOutput =
-				typeof module.content === "string"
-					? Buffer.byteLength(module.content)
-					: module.content.byteLength;
-			dependencies[modulePath] = { bytesInOutput };
-		}
-
 		if (workersSitesAssets.manifest) {
 			modules.push({
 				name: "__STATIC_CONTENT_MANIFEST",
@@ -805,10 +809,6 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 				type: "text",
 			});
 		}
-
-		const content = readFileSync(resolvedEntryPointPath, {
-			encoding: "utf-8",
-		});
 
 		const placement = parseConfigPlacement(config);
 
