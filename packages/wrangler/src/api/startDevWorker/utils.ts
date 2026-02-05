@@ -122,14 +122,6 @@ export function convertConfigToBindings(
 	const { usePreviewIds = false, pages = false } = options ?? {};
 	const output: NonNullable<StartDevWorkerOptions["bindings"]> = {};
 
-	// Helper to get ID with optional preview fallback
-	const getId = <T, K1 extends keyof T, K2 extends keyof T>(
-		item: T,
-		previewField: K1,
-		idField: K2
-	): T[K1] | T[K2] =>
-		usePreviewIds ? item[previewField] ?? item[idField] : item[idField];
-
 	type Entries<T> = { [K in keyof T]: [K, T[K]] }[keyof T][];
 	type ConfigIterable = Entries<Required<ConfigBindingOptions>>;
 	const configIterable = Object.entries(config) as ConfigIterable;
@@ -151,34 +143,30 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "kv_namespaces": {
-				for (const kv of value) {
-					const { binding, preview_id: _, ...rest } = kv;
+				for (const { binding, preview_id, id, ...rest } of value) {
 					output[binding] = {
 						type: "kv_namespace",
 						...rest,
-						id: getId(kv, "preview_id", "id"),
+						id: usePreviewIds ? preview_id ?? id : id,
 					};
 				}
 				break;
 			}
 			case "send_email": {
 				if (pages) break;
-				for (const email of value) {
-					const { name, ...rest } = email;
+				for (const { name, ...rest } of value) {
 					output[name] = { type: "send_email", ...rest };
 				}
 				break;
 			}
 			case "durable_objects": {
-				for (const durable of value.bindings ?? []) {
-					const { name, ...rest } = durable;
+				for (const { name, ...rest } of value.bindings ?? []) {
 					output[name] = { type: "durable_object_namespace", ...rest };
 				}
 				break;
 			}
 			case "workflows": {
-				for (const workflow of value) {
-					const { binding, ...rest } = workflow;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "workflow", ...rest };
 				}
 				break;
@@ -196,117 +184,117 @@ export function convertConfigToBindings(
 				break;
 			}
 			case "r2_buckets": {
-				for (const r2 of value) {
-					const { binding, preview_bucket_name: _, ...rest } = r2;
+				for (const {
+					binding,
+					preview_bucket_name,
+					bucket_name,
+					...rest
+				} of value) {
 					output[binding] = {
 						type: "r2_bucket",
 						...rest,
-						bucket_name: getId(r2, "preview_bucket_name", "bucket_name"),
+						bucket_name: usePreviewIds
+							? preview_bucket_name ?? bucket_name
+							: bucket_name,
 					};
 				}
 				break;
 			}
 			case "d1_databases": {
-				for (const d1 of value) {
-					const { binding, preview_database_id: _, ...rest } = d1;
+				for (const {
+					binding,
+					preview_database_id,
+					database_id,
+					...rest
+				} of value) {
 					output[binding] = {
 						type: "d1",
 						...rest,
-						database_id: getId(d1, "preview_database_id", "database_id"),
+						database_id: usePreviewIds
+							? preview_database_id ?? database_id
+							: database_id,
 					};
 				}
 				break;
 			}
 			case "vectorize": {
-				for (const v of value) {
-					const { binding, ...rest } = v;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "vectorize", ...rest };
 				}
 				break;
 			}
 			case "hyperdrive": {
-				for (const h of value) {
-					const { binding, ...rest } = h;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "hyperdrive", ...rest };
 				}
 				break;
 			}
 			case "secrets_store_secrets": {
-				for (const secret of value) {
-					const { binding, ...rest } = secret;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "secrets_store_secret", ...rest };
 				}
 				break;
 			}
 			case "unsafe_hello_world": {
 				if (pages) break;
-				for (const helloWorld of value) {
-					const { binding, ...rest } = helloWorld;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "unsafe_hello_world", ...rest };
 				}
 				break;
 			}
 			case "ratelimits": {
-				for (const ratelimit of value) {
-					const { name, ...rest } = ratelimit;
+				for (const { name, ...rest } of value) {
 					output[name] = { type: "ratelimit", ...rest };
 				}
 				break;
 			}
 			case "vpc_services": {
-				for (const vpc of value) {
-					const { binding, ...rest } = vpc;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "vpc_service", ...rest };
 				}
 				break;
 			}
 			case "services": {
-				for (const service of value) {
-					const { binding, ...rest } = service;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "service", ...rest };
 				}
 				break;
 			}
 			case "analytics_engine_datasets": {
-				for (const dataset of value) {
-					const { binding, ...rest } = dataset;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "analytics_engine", ...rest };
 				}
 				break;
 			}
 			case "dispatch_namespaces": {
 				if (pages) break;
-				for (const dispatch of value) {
-					const { binding, ...rest } = dispatch;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "dispatch_namespace", ...rest };
 				}
 				break;
 			}
 			case "mtls_certificates": {
-				for (const mtls of value) {
-					const { binding, ...rest } = mtls;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "mtls_certificate", ...rest };
 				}
 				break;
 			}
 			case "pipelines": {
 				if (pages) break;
-				for (const pipeline of value) {
-					const { binding, ...rest } = pipeline;
+				for (const { binding, ...rest } of value) {
 					output[binding] = { type: "pipeline", ...rest };
 				}
 				break;
 			}
 			case "worker_loaders": {
-				for (const loader of value) {
-					output[loader.binding] = { type: "worker_loader" };
+				for (const { binding } of value) {
+					output[binding] = { type: "worker_loader" };
 				}
 				break;
 			}
 			case "logfwdr": {
 				if (pages) break;
-				for (const l of value.bindings ?? []) {
-					const { name, ...rest } = l;
+				for (const { name, ...rest } of value.bindings ?? []) {
 					output[name] = { type: "logfwdr", ...rest };
 				}
 				break;
