@@ -107,34 +107,34 @@ export function createWorkerUploadForm(
 	const metadataBindings: WorkerMetadataBinding[] = [];
 
 	// Process flat bindings format
-	for (const [name, binding] of Object.entries(bindings ?? {})) {
-		switch (binding.type) {
+	for (const [binding, config] of Object.entries(bindings ?? {})) {
+		switch (config.type) {
 			case "plain_text": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "plain_text",
-					text: binding.value,
+					text: config.value,
 				});
 				break;
 			}
 			case "secret_text": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "secret_text",
-					text: binding.value,
+					text: config.value,
 				});
 				break;
 			}
 			case "json": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "json",
-					json: binding.value,
+					json: config.value,
 				});
 				break;
 			}
 			case "kv_namespace": {
-				let id = binding.id;
+				let id = config.id;
 				// If we're doing a dry run there's no way to know whether or not a KV namespace
 				// is inheritable or requires provisioning (since that would require hitting the API).
 				// As such, _assume_ any undefined IDs are inheritable when doing a dry run.
@@ -143,35 +143,35 @@ export function createWorkerUploadForm(
 					id ??= INHERIT_SYMBOL;
 				}
 				if (id === undefined) {
-					throw new UserError(`${name} bindings must have an "id" field`);
+					throw new UserError(`${binding} bindings must have an "id" field`);
 				}
 				if (id === INHERIT_SYMBOL) {
-					metadataBindings.push({ name, type: "inherit" });
+					metadataBindings.push({ name: binding, type: "inherit" });
 				} else {
 					metadataBindings.push({
-						name,
+						name: binding,
 						type: "kv_namespace",
 						namespace_id: id,
-						raw: binding.raw,
+						raw: config.raw,
 					});
 				}
 				break;
 			}
 			case "send_email": {
 				const destination_address =
-					"destination_address" in binding
-						? (binding.destination_address as string | undefined)
+					"destination_address" in config
+						? (config.destination_address as string | undefined)
 						: undefined;
 				const allowed_destination_addresses =
-					"allowed_destination_addresses" in binding
-						? (binding.allowed_destination_addresses as string[] | undefined)
+					"allowed_destination_addresses" in config
+						? (config.allowed_destination_addresses as string[] | undefined)
 						: undefined;
 				const allowed_sender_addresses =
-					"allowed_sender_addresses" in binding
-						? (binding.allowed_sender_addresses as string[] | undefined)
+					"allowed_sender_addresses" in config
+						? (config.allowed_sender_addresses as string[] | undefined)
 						: undefined;
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "send_email",
 					destination_address,
 					allowed_destination_addresses,
@@ -181,115 +181,115 @@ export function createWorkerUploadForm(
 			}
 			case "durable_object_namespace": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "durable_object_namespace",
-					class_name: binding.class_name,
-					...(binding.script_name && { script_name: binding.script_name }),
-					...(binding.environment && { environment: binding.environment }),
+					class_name: config.class_name,
+					...(config.script_name && { script_name: config.script_name }),
+					...(config.environment && { environment: config.environment }),
 				});
 				break;
 			}
 			case "workflow": {
 				metadataBindings.push({
 					type: "workflow",
-					name,
-					workflow_name: binding.name,
-					class_name: binding.class_name,
-					script_name: binding.script_name,
-					raw: binding.raw,
+					name: binding,
+					workflow_name: config.name,
+					class_name: config.class_name,
+					script_name: config.script_name,
+					raw: config.raw,
 				});
 				break;
 			}
 			case "queue": {
 				metadataBindings.push({
 					type: "queue",
-					name,
-					queue_name: binding.queue_name,
-					delivery_delay: binding.delivery_delay,
-					raw: binding.raw,
+					name: binding,
+					queue_name: config.queue_name,
+					delivery_delay: config.delivery_delay,
+					raw: config.raw,
 				});
 				break;
 			}
 			case "r2_bucket": {
-				let bucketName = binding.bucket_name;
+				let bucketName = config.bucket_name;
 				if (options?.dryRun) {
 					bucketName ??= INHERIT_SYMBOL;
 				}
 				if (bucketName === undefined) {
 					throw new UserError(
-						`${name} bindings must have a "bucket_name" field`
+						`${binding} bindings must have a "bucket_name" field`
 					);
 				}
 				if (bucketName === INHERIT_SYMBOL) {
-					metadataBindings.push({ name, type: "inherit" });
+					metadataBindings.push({ name: binding, type: "inherit" });
 				} else {
 					metadataBindings.push({
-						name,
+						name: binding,
 						type: "r2_bucket",
 						bucket_name: bucketName,
-						jurisdiction: binding.jurisdiction,
-						raw: binding.raw,
+						jurisdiction: config.jurisdiction,
+						raw: config.raw,
 					});
 				}
 				break;
 			}
 			case "d1": {
-				let databaseId = binding.database_id;
+				let databaseId = config.database_id;
 				if (options?.dryRun) {
 					databaseId ??= INHERIT_SYMBOL;
 				}
 				if (databaseId === undefined) {
 					throw new UserError(
-						`${name} bindings must have a "database_id" field`
+						`${binding} bindings must have a "database_id" field`
 					);
 				}
 				if (databaseId === INHERIT_SYMBOL) {
-					metadataBindings.push({ name, type: "inherit" });
+					metadataBindings.push({ name: binding, type: "inherit" });
 				} else {
 					metadataBindings.push({
-						name,
+						name: binding,
 						type: "d1",
 						id: databaseId,
-						internalEnv: binding.database_internal_env,
-						raw: binding.raw,
+						internalEnv: config.database_internal_env,
+						raw: config.raw,
 					});
 				}
 				break;
 			}
 			case "vectorize": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "vectorize",
-					index_name: binding.index_name,
-					raw: binding.raw,
+					index_name: config.index_name,
+					raw: config.raw,
 				});
 				break;
 			}
 			case "hyperdrive": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "hyperdrive",
-					id: binding.id,
+					id: config.id,
 				});
 				break;
 			}
 			case "secrets_store_secret": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "secrets_store_secret",
-					store_id: binding.store_id,
-					secret_name: binding.secret_name,
+					store_id: config.store_id,
+					secret_name: config.secret_name,
 				});
 				break;
 			}
 			case "unsafe_hello_world": {
 				// The binding type overlaps with `unsafe_${string}`, so we need to cast
-				const helloWorldBinding = binding as Extract<
+				const helloWorldBinding = config as Extract<
 					Binding,
 					{ type: "unsafe_hello_world" }
 				>;
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "unsafe_hello_world",
 					enable_timer: helloWorldBinding.enable_timer,
 				});
@@ -297,53 +297,53 @@ export function createWorkerUploadForm(
 			}
 			case "ratelimit": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "ratelimit",
-					namespace_id: binding.namespace_id,
-					simple: binding.simple,
+					namespace_id: config.namespace_id,
+					simple: config.simple,
 				});
 				break;
 			}
 			case "vpc_service": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "vpc_service",
-					service_id: binding.service_id,
+					service_id: config.service_id,
 				});
 				break;
 			}
 			case "service": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "service",
-					service: binding.service,
-					cross_account_grant: binding.cross_account_grant,
-					...(binding.environment && { environment: binding.environment }),
-					...(binding.entrypoint && { entrypoint: binding.entrypoint }),
-					...(binding.props && { props: binding.props }),
+					service: config.service,
+					cross_account_grant: config.cross_account_grant,
+					...(config.environment && { environment: config.environment }),
+					...(config.entrypoint && { entrypoint: config.entrypoint }),
+					...(config.props && { props: config.props }),
 				});
 				break;
 			}
 			case "analytics_engine": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "analytics_engine",
-					dataset: binding.dataset,
+					dataset: config.dataset,
 				});
 				break;
 			}
 			case "dispatch_namespace": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "dispatch_namespace",
-					namespace: binding.namespace,
-					...(binding.outbound && {
+					namespace: config.namespace,
+					...(config.outbound && {
 						outbound: {
 							worker: {
-								service: binding.outbound.service,
-								environment: binding.outbound.environment,
+								service: config.outbound.service,
+								environment: config.outbound.environment,
 							},
-							params: binding.outbound.parameters?.map((p) => ({ name: p })),
+							params: config.outbound.parameters?.map((p) => ({ name: p })),
 						},
 					}),
 				});
@@ -351,118 +351,122 @@ export function createWorkerUploadForm(
 			}
 			case "mtls_certificate": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "mtls_certificate",
-					certificate_id: binding.certificate_id,
+					certificate_id: config.certificate_id,
 				});
 				break;
 			}
 			case "pipeline": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "pipelines",
-					pipeline: binding.pipeline,
+					pipeline: config.pipeline,
 				});
 				break;
 			}
 			case "worker_loader": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "worker_loader",
 				});
 				break;
 			}
 			case "logfwdr": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "logfwdr",
-					destination: binding.destination,
+					destination: config.destination,
 				});
 				break;
 			}
 			case "wasm_module": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "wasm_module",
-					part: name,
+					part: binding,
 				});
-				const source = binding.source;
+				const source = config.source;
 				const content =
 					"contents" in source
 						? source.contents
 						: readFileSync(source.path as string);
 				formData.set(
-					name,
-					new File([content], "path" in source ? source.path ?? name : name, {
-						type: "application/wasm",
-					})
+					binding,
+					new File(
+						[content],
+						"path" in source ? source.path ?? binding : binding,
+						{
+							type: "application/wasm",
+						}
+					)
 				);
 				break;
 			}
 			case "browser": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "browser",
-					raw: binding.raw,
+					raw: config.raw,
 				});
 				break;
 			}
 			case "ai": {
 				metadataBindings.push({
-					name,
-					staging: binding.staging,
+					name: binding,
+					staging: config.staging,
 					type: "ai",
-					raw: binding.raw,
+					raw: config.raw,
 				});
 				break;
 			}
 			case "images": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "images",
-					raw: binding.raw,
+					raw: config.raw,
 				});
 				break;
 			}
 			case "media": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "media",
 				});
 				break;
 			}
 			case "version_metadata": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "version_metadata",
 				});
 				break;
 			}
 			case "assets": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "assets",
 				});
 				break;
 			}
 			case "text_blob": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "text_blob",
-					part: name,
+					part: binding,
 				});
-				const source = binding.source;
-				if (name !== "__STATIC_CONTENT_MANIFEST") {
+				const source = config.source;
+				if (binding !== "__STATIC_CONTENT_MANIFEST") {
 					if ("contents" in source) {
 						formData.set(
-							name,
-							new File([source.contents], source.path ?? name, {
+							binding,
+							new File([source.contents], source.path ?? binding, {
 								type: "text/plain",
 							})
 						);
 					} else {
 						formData.set(
-							name,
+							binding,
 							new File([readFileSync(source.path)], source.path, {
 								type: "text/plain",
 							})
@@ -473,20 +477,24 @@ export function createWorkerUploadForm(
 			}
 			case "data_blob": {
 				metadataBindings.push({
-					name,
+					name: binding,
 					type: "data_blob",
-					part: name,
+					part: binding,
 				});
-				const source = binding.source;
+				const source = config.source;
 				const content =
 					"contents" in source
 						? source.contents
 						: readFileSync(source.path as string);
 				formData.set(
-					name,
-					new File([content], "path" in source ? source.path ?? name : name, {
-						type: "application/octet-stream",
-					})
+					binding,
+					new File(
+						[content],
+						"path" in source ? source.path ?? binding : binding,
+						{
+							type: "application/octet-stream",
+						}
+					)
 				);
 				break;
 			}
@@ -496,10 +504,10 @@ export function createWorkerUploadForm(
 			}
 			default: {
 				// Handle unsafe_* bindings (excluding unsafe_hello_world which is handled above)
-				if (binding.type.startsWith("unsafe_")) {
-					const { type, ...data } = binding;
+				if (config.type.startsWith("unsafe_")) {
+					const { type, ...data } = config;
 					metadataBindings.push({
-						name,
+						name: binding,
 						type: type.slice("unsafe_".length),
 						...data,
 					} as WorkerMetadataBinding);
