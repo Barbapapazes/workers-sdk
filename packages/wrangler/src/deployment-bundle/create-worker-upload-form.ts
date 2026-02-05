@@ -135,6 +135,10 @@ export function createWorkerUploadForm(
 			}
 			case "kv_namespace": {
 				let id = binding.id;
+				// If we're doing a dry run there's no way to know whether or not a KV namespace
+				// is inheritable or requires provisioning (since that would require hitting the API).
+				// As such, _assume_ any undefined IDs are inheritable when doing a dry run.
+				// When this Worker is actually deployed, some may be provisioned at the point of deploy
 				if (options?.dryRun) {
 					id ??= INHERIT_SYMBOL;
 				}

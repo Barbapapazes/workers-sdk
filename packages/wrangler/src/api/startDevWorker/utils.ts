@@ -1,7 +1,7 @@
 import assert from "node:assert";
+import type { AdditionalDevProps } from "../../dev";
 import type { Binding, Hook, HookValues, StartDevWorkerOptions } from "./types";
 import type { Config } from "@cloudflare/workers-utils";
-import type { Json } from "miniflare";
 
 export function assertNever(_value: never) {}
 
@@ -340,55 +340,17 @@ export function convertConfigToBindings(
  * Bindings that can be passed via the StartDevOptions (CLI/API) interface.
  * This is a subset of all binding types, focused on the most commonly used ones.
  */
-export interface StartDevOptionsBindings {
-	vars?: Record<string, string | Json>;
-	kv?: {
-		binding: string;
-		id?: string;
-		preview_id?: string;
-	}[];
-	durableObjects?: {
-		name: string;
-		class_name: string;
-		script_name?: string;
-		environment?: string;
-	}[];
-	services?: {
-		binding: string;
-		service: string;
-		environment?: string;
-		entrypoint?: string;
-	}[];
-	r2?: {
-		binding: string;
-		bucket_name?: string;
-		preview_bucket_name?: string;
-		jurisdiction?: string;
-	}[];
-	ai?: {
-		binding: string;
-	};
-	version_metadata?: {
-		binding: string;
-	};
-	d1Databases?: {
-		binding: string;
-		database_id?: string;
-		database_name?: string;
-		database_internal_env?: string;
-		preview_database_id?: string;
-	}[];
-	queueProducers?: {
-		binding: string;
-		queue: string;
-		delivery_delay?: number;
-	}[];
-	hyperdrive?: {
-		binding: string;
-		id: string;
-		localConnectionString?: string;
-	}[];
-}
+export type StartDevOptionsBindings = Pick<
+	AdditionalDevProps,
+	| "vars"
+	| "kv"
+	| "durableObjects"
+	| "services"
+	| "r2"
+	| "ai"
+	| "version_metadata"
+	| "d1Databases"
+>;
 
 /**
  * Convert StartDevOptions bindings to the flat StartDevWorkerInput["bindings"] format.
@@ -399,7 +361,7 @@ export function convertStartDevOptionsToBindings(
 	inputBindings: StartDevOptionsBindings
 ): StartDevWorkerOptions["bindings"] {
 	// Map StartDevOptionsBindings field names to Config field names
-	const configBindings: Partial<Config> = {
+	const configBindings = {
 		vars: inputBindings.vars,
 		kv_namespaces: inputBindings.kv,
 		durable_objects: inputBindings.durableObjects
@@ -410,10 +372,6 @@ export function convertStartDevOptionsToBindings(
 		ai: inputBindings.ai,
 		version_metadata: inputBindings.version_metadata,
 		d1_databases: inputBindings.d1Databases,
-		queues: inputBindings.queueProducers
-			? { producers: inputBindings.queueProducers }
-			: undefined,
-		hyperdrive: inputBindings.hyperdrive,
 	};
 
 	return convertConfigToBindings(configBindings as unknown as Config, {
