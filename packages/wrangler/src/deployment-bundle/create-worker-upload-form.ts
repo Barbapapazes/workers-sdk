@@ -3,10 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { INHERIT_SYMBOL, UserError } from "@cloudflare/workers-utils";
 import { FormData } from "undici";
+import { assertNever } from "../api/startDevWorker/utils";
 import { handleUnsafeCapnp } from "./capnp";
 import type { Binding, StartDevWorkerInput } from "../api/startDevWorker/types";
 import type {
 	AssetConfigMetadata,
+	CfCapnp,
 	CfModuleType,
 	CfWorkerInit,
 	WorkerMetadata,
@@ -54,7 +56,7 @@ export function createWorkerUploadForm(
 	bindings: StartDevWorkerInput["bindings"],
 	options?: {
 		dryRun?: true;
-		unsafe?: { metadata?: Record<string, unknown>; capnp?: unknown };
+		unsafe?: { metadata?: Record<string, unknown>; capnp?: CfCapnp };
 	}
 ): FormData {
 	const formData = new FormData();
@@ -102,11 +104,10 @@ export function createWorkerUploadForm(
 		);
 		return formData;
 	}
-
 	let { modules } = worker;
+
 	const metadataBindings: WorkerMetadataBinding[] = [];
 
-	// Process flat bindings format
 	for (const [binding, config] of Object.entries(bindings ?? {})) {
 		switch (config.type) {
 			case "plain_text": {
@@ -142,11 +143,16 @@ export function createWorkerUploadForm(
 				if (options?.dryRun) {
 					id ??= INHERIT_SYMBOL;
 				}
+
 				if (id === undefined) {
 					throw new UserError(`${binding} bindings must have an "id" field`);
 				}
+
 				if (id === INHERIT_SYMBOL) {
-					metadataBindings.push({ name: binding, type: "inherit" });
+					metadataBindings.push({
+						name: binding,
+						type: "inherit",
+					});
 				} else {
 					metadataBindings.push({
 						name: binding,
@@ -221,7 +227,10 @@ export function createWorkerUploadForm(
 					);
 				}
 				if (bucketName === INHERIT_SYMBOL) {
-					metadataBindings.push({ name: binding, type: "inherit" });
+					metadataBindings.push({
+						name: binding,
+						type: "inherit",
+					});
 				} else {
 					metadataBindings.push({
 						name: binding,
@@ -244,7 +253,10 @@ export function createWorkerUploadForm(
 					);
 				}
 				if (databaseId === INHERIT_SYMBOL) {
-					metadataBindings.push({ name: binding, type: "inherit" });
+					metadataBindings.push({
+						name: binding,
+						type: "inherit",
+					});
 				} else {
 					metadataBindings.push({
 						name: binding,
@@ -498,10 +510,7 @@ export function createWorkerUploadForm(
 				);
 				break;
 			}
-			case "fetcher": {
-				// Fetcher bindings are handled separately (not uploaded to API)
-				break;
-			}
+
 			default: {
 				// Handle unsafe_* bindings (excluding unsafe_hello_world which is handled above)
 				if (config.type.startsWith("unsafe_")) {
@@ -521,10 +530,34 @@ export function createWorkerUploadForm(
 	const hasManifest = modules?.some(({ name }) => name === manifestModuleName);
 	if (hasManifest && main.type === "esm") {
 		assert(modules !== undefined);
+		// Each modules-format worker has a virtual file system for module
+		// resolution. For example, uploading modules with names `1.mjs`,
+		// `a/2.mjs` and `a/b/3.mjs`, creates virtual directories `a` and `a/b`.
+		// `1.mjs` is in the virtual root directory.
+		//
+		// The above code adds the `__STATIC_CONTENT_MANIFEST` module to the root
+		// directory. This means `import manifest from "__STATIC_CONTENT_MANIFEST"`
+		// will only work if the importing module is also in the root. If the
+		// importing module was `a/b/3.mjs` for example, the import would need to
+		// be `import manifest from "../../__STATIC_CONTENT_MANIFEST"`.
+		//
+		// When Wrangler bundles all user code, this isn't a problem, as code is
+		// only ever uploaded to the root. However, once `--no-bundle` or
+		// `find_additional_modules` is enabled, the user controls the directory
+		// structure.
+		//
+		// To fix this, if we've got a modules-format worker, we add stub modules
+		// in each subdirectory that re-export the manifest module from the root.
+		// This allows the manifest to be imported as `__STATIC_CONTENT_MANIFEST`
+		// in every directory, whilst avoiding duplication of the manifest.
+
+		// Collect unique subdirectories
 		const subDirs = new Set(
 			modules.map((module) => path.posix.dirname(module.name))
 		);
 		for (const subDir of subDirs) {
+			// Ignore `.` as it's not a subdirectory, and we don't want to
+			// register the manifest module in the root twice.
 			if (subDir === ".") {
 				continue;
 			}
@@ -540,20 +573,29 @@ export function createWorkerUploadForm(
 	}
 
 	if (main.type === "commonjs") {
+		// This is a service-worker format worker.
 		for (const module of Object.values([...(modules || [])])) {
 			if (module.name === "__STATIC_CONTENT_MANIFEST") {
+				// Add the manifest to the form data.
 				formData.set(
 					module.name,
 					new File([module.content], module.name, {
 						type: "text/plain",
 					})
 				);
+				// And then remove it from the modules collection
 				modules = modules?.filter((m) => m !== module);
 			} else if (
 				module.type === "compiled-wasm" ||
 				module.type === "text" ||
 				module.type === "buffer"
 			) {
+				// Convert all wasm/text/data modules into `wasm_module`/`text_blob`/`data_blob` bindings.
+				// The "name" of the module is a file path. We use it
+				// to instead be a "part" of the body, and a reference
+				// that we can use inside our source. This identifier has to be a valid
+				// JS identifier, so we replace all non alphanumeric characters
+				// with an underscore.
 				const name = module.name.replace(/[^a-zA-Z0-9_$]/g, "_");
 				metadataBindings.push({
 					name,
@@ -565,6 +607,8 @@ export function createWorkerUploadForm(
 								: "data_blob",
 					part: name,
 				});
+
+				// Add the module to the form data.
 				formData.set(
 					name,
 					new File([module.content], module.name, {
@@ -576,6 +620,7 @@ export function createWorkerUploadForm(
 									: "application/octet-stream",
 					})
 				);
+				// And then remove it from the modules collection
 				modules = modules?.filter((m) => m !== module);
 			}
 		}
@@ -583,7 +628,6 @@ export function createWorkerUploadForm(
 
 	let capnpSchemaOutputFile: string | undefined;
 	if (options?.unsafe?.capnp) {
-		// @ts-expect-error capnp handling
 		const capnpOutput = handleUnsafeCapnp(options.unsafe.capnp);
 		capnpSchemaOutputFile = `./capnp-${Date.now()}.compiled`;
 		formData.set(
