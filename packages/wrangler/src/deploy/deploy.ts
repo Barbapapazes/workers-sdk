@@ -16,13 +16,17 @@ import {
 } from "@cloudflare/workers-utils";
 import PQueue from "p-queue";
 import { Response } from "undici";
+import { extractBindingsOfType } from "../api/startDevWorker/utils";
 import { syncAssets } from "../assets";
 import { fetchListResult, fetchResult } from "../cfetch";
 import { buildContainer } from "../containers/build";
 import { getNormalizedContainerOptions } from "../containers/config";
 import { deployContainers } from "../containers/deploy";
 import { isAuthenticationError } from "../core/handle-errors";
-import { getBindings, provisionBindings } from "../deployment-bundle/bindings";
+import {
+	getBindings,
+	provisionBindingsFromInput,
+} from "../deployment-bundle/bindings";
 import { bundleWorker } from "../deployment-bundle/bundle";
 import { printBundleSize } from "../deployment-bundle/bundle-reporter";
 import { createWorkerUploadForm } from "../deployment-bundle/create-worker-upload-form";
@@ -74,6 +78,7 @@ import { confirmLatestDeploymentOverwrite } from "../versions/deploy";
 import { getZoneForRoute } from "../zones";
 import { checkRemoteSecretsOverride } from "./check-remote-secrets-override";
 import { getConfigPatch, getRemoteConfigDiff } from "./config-diffs";
+import type { StartDevWorkerInput } from "../api/startDevWorker/types";
 import type { AssetsOptions } from "../assets";
 import type { Entry } from "../deployment-bundle/entry";
 import type { PostTypedConsumerBody } from "../queues/client";
@@ -383,7 +388,7 @@ export default async function deploy(props: Props): Promise<{
 		custom_domain: true,
 	}));
 	const routes =
-		props.routes ?? config.routes ?? (config.route ? [config.route] : []) ?? [];
+		props.routes ?? config.routes ?? (config.route ? [config.route] : []);
 	const allDeploymentRoutes = [...routes, ...domainRoutes];
 
 	if (!props.dispatchNamespace && accountId) {
@@ -650,6 +655,87 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 		const uploadSourceMaps =
 			props.uploadSourceMaps ?? config.upload_source_maps;
 
+		// durable object migrations
+		const migrations = !props.dryRun
+			? await getMigrationsToUpload(scriptName, {
+					accountId,
+					config,
+					useServiceEnvironments: props.useServiceEnvironments,
+					env: props.env,
+					dispatchNamespace: props.dispatchNamespace,
+				})
+			: undefined;
+
+		// Upload assets if assets is being used
+		const assetsJwt =
+			props.assetsOptions && !props.dryRun
+				? await syncAssets(
+						config,
+						accountId,
+						props.assetsOptions.directory,
+						scriptName,
+						props.dispatchNamespace
+					)
+				: undefined;
+
+		const workersSitesAssets = await syncWorkersSite(
+			config,
+			accountId,
+			// When we're using the newer service environments, we wouldn't
+			// have added the env name on to the script name. However, we must
+			// include it in the kv namespace name regardless (since there's no
+			// concept of service environments for kv namespaces yet).
+			scriptName + (useServiceEnvironments ? `-${props.env}` : ""),
+			props.legacyAssetPaths,
+			false,
+			props.dryRun,
+			props.oldAssetTtl
+		);
+
+		const withoutStaticAssets = getBindings({
+			...config,
+			vars: { ...config.vars, ...props.vars },
+		});
+
+		// Mark CLI vars (props.vars) as secret_text for display purposes
+		// These are user-provided overrides that shouldn't be logged
+		if (props.vars && withoutStaticAssets) {
+			for (const key of Object.keys(props.vars)) {
+				const binding = withoutStaticAssets[key];
+				if (binding && binding.type === "plain_text") {
+					withoutStaticAssets[key] = {
+						type: "secret_text",
+						value: binding.value,
+					};
+				}
+			}
+		}
+
+		let bindings: StartDevWorkerInput["bindings"] = { ...withoutStaticAssets };
+		if (workersSitesAssets.namespace) {
+			bindings["__STATIC_CONTENT"] = {
+				type: "kv_namespace",
+				id: workersSitesAssets.namespace,
+			};
+		}
+		// For service workers, add __STATIC_CONTENT_MANIFEST as a text_blob binding
+		// For module workers, it's added as a module instead (not a binding)
+		if (workersSitesAssets.manifest && format === "service-worker") {
+			bindings["__STATIC_CONTENT_MANIFEST"] = {
+				type: "text_blob",
+				source: { contents: "__STATIC_CONTENT_MANIFEST" },
+			};
+		}
+
+		const expectedExports = [
+			...extractBindingsOfType("durable_object_namespace", bindings).filter(
+				(ns) => !ns.script_name
+			),
+			...extractBindingsOfType("workflow", bindings).filter(
+				(ns) => !ns.script_name
+			),
+		];
+
 		const {
 			modules,
 			dependencies,
@@ -671,8 +757,7 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 						bundle: true,
 						additionalModules: [],
 						moduleCollector,
-						doBindings: config.durable_objects.bindings,
-						workflowBindings: config.workflows ?? [],
+						expectedExports,
 						jsxFactory,
 						jsxFragment,
 						tsconfig: props.tsconfig ?? config.tsconfig,
@@ -721,64 +806,6 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			dependencies[modulePath] = { bytesInOutput };
 		}
 
-		const content = readFileSync(resolvedEntryPointPath, {
-			encoding: "utf-8",
-		});
-
-		// durable object migrations
-		const migrations = !props.dryRun
-			? await getMigrationsToUpload(scriptName, {
-					accountId,
-					config,
-					useServiceEnvironments: props.useServiceEnvironments,
-					env: props.env,
-					dispatchNamespace: props.dispatchNamespace,
-				})
-			: undefined;
-
-		// Upload assets if assets is being used
-		const assetsJwt =
-			props.assetsOptions && !props.dryRun
-				? await syncAssets(
-						config,
-						accountId,
-						props.assetsOptions.directory,
-						scriptName,
-						props.dispatchNamespace
-					)
-				: undefined;
-
-		const workersSitesAssets = await syncWorkersSite(
-			config,
-			accountId,
-			// When we're using the newer service environments, we wouldn't
-			// have added the env name on to the script name. However, we must
-			// include it in the kv namespace name regardless (since there's no
-			// concept of service environments for kv namespaces yet).
-			scriptName + (useServiceEnvironments ? `-${props.env}` : ""),
-			props.legacyAssetPaths,
-			false,
-			props.dryRun,
-			props.oldAssetTtl
-		);
-
-		const bindings = getBindings({
-			...config,
-			kv_namespaces: config.kv_namespaces.concat(
-				workersSitesAssets.namespace
-					? { binding: "__STATIC_CONTENT", id: workersSitesAssets.namespace }
-					: []
-			),
-			vars: { ...config.vars, ...props.vars },
-			text_blobs: {
-				...config.text_blobs,
-				...(workersSitesAssets.manifest &&
-					format === "service-worker" && {
-						__STATIC_CONTENT_MANIFEST: "__STATIC_CONTENT_MANIFEST",
-					}),
-			},
-		});
-
 		if (workersSitesAssets.manifest) {
 			modules.push({
 				name: "__STATIC_CONTENT_MANIFEST",
@@ -787,6 +814,10 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 				type: "text",
 			});
 		}
+
+		const content = readFileSync(resolvedEntryPointPath, {
+			encoding: "utf-8",
+		});
 
 		const placement = parseConfigPlacement(config);
 
@@ -797,10 +828,9 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			content: content,
 			type: bundleType,
 		};
-		const worker: CfWorkerInit = {
+		const worker: Omit<CfWorkerInit, "bindings"> = {
 			name: scriptName,
 			main,
-			bindings,
 			migrations,
 			modules,
 			containers: config.containers,
@@ -840,23 +870,6 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			modules
 		);
 
-		const withoutStaticAssets = {
-			...bindings,
-			kv_namespaces: config.kv_namespaces,
-			text_blobs: config.text_blobs,
-		};
-
-		// mask anything that was overridden in cli args
-		// so that we don't log potential secrets into the terminal
-		const maskedVars = { ...withoutStaticAssets.vars };
-		for (const key of Object.keys(maskedVars)) {
-			if (maskedVars[key] !== config.vars[key]) {
-				// This means it was overridden in cli args
-				// so let's mask it
-				maskedVars[key] = "(hidden)";
-			}
-		}
-
 		// We can use the new versions/deployments APIs if we:
 		// * are uploading a worker that already exists
 		// * aren't a dispatch namespace deploy
@@ -891,6 +904,10 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			}
 		}
 
+		// userBindings contains only user-facing bindings (for printing)
+		// bindings contains userBindings + internal Workers Sites bindings (for upload)
+		let userBindings: StartDevWorkerInput["bindings"] = withoutStaticAssets;
+
 		if (props.dryRun) {
 			if (normalisedContainerConfig.length) {
 				for (const container of normalisedContainerConfig) {
@@ -905,28 +922,49 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 				}
 			}
 
-			workerBundle = createWorkerUploadForm(worker, { dryRun: true });
+			workerBundle = createWorkerUploadForm(worker, bindings, {
+				dryRun: true,
+				unsafe: config.unsafe,
+			});
+
 			printBindings(
-				{ ...withoutStaticAssets, vars: maskedVars },
+				userBindings,
 				config.tail_consumers,
 				config.streaming_tail_consumers,
 				config.containers,
-				{ warnIfNoBindings: true }
+				{ warnIfNoBindings: true, unsafeMetadata: config.unsafe?.metadata }
 			);
 		} else {
 			assert(accountId, "Missing accountId");
 
 			if (getFlag("RESOURCES_PROVISION")) {
-				await provisionBindings(
-					bindings,
+				// Provision only user-facing bindings
+				userBindings = await provisionBindingsFromInput(
+					userBindings,
 					accountId,
 					scriptName,
 					props.experimentalAutoCreate,
 					props.config
 				);
+				// Rebuild full bindings with provisioned user bindings + internal Workers Sites bindings
+				bindings = { ...userBindings };
+				if (workersSitesAssets.namespace) {
+					bindings["__STATIC_CONTENT"] = {
+						type: "kv_namespace",
+						id: workersSitesAssets.namespace,
+					};
+				}
+				if (workersSitesAssets.manifest && format === "service-worker") {
+					bindings["__STATIC_CONTENT_MANIFEST"] = {
+						type: "text_blob",
+						source: { contents: "__STATIC_CONTENT_MANIFEST" },
+					};
+				}
 			}
 
-			workerBundle = createWorkerUploadForm(worker);
+			workerBundle = createWorkerUploadForm(worker, bindings, {
+				unsafe: config.unsafe,
+			});
 
 			await ensureQueuesExistByConfig(config);
 			let bindingsPrinted = false;
@@ -1048,10 +1086,11 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 				bindingsPrinted = true;
 
 				printBindings(
-					{ ...withoutStaticAssets, vars: maskedVars },
+					userBindings,
 					config.tail_consumers,
 					config.streaming_tail_consumers,
-					config.containers
+					config.containers,
+					{ unsafeMetadata: config.unsafe?.metadata }
 				);
 
 				versionId = parseNonHyphenedUuid(result.deployment_id);
@@ -1079,10 +1118,11 @@ See https://developers.cloudflare.com/workers/platform/compatibility-dates for m
 			} catch (err) {
 				if (!bindingsPrinted) {
 					printBindings(
-						{ ...withoutStaticAssets, vars: maskedVars },
+						userBindings,
 						config.tail_consumers,
 						config.streaming_tail_consumers,
-						config.containers
+						config.containers,
+						{ unsafeMetadata: config.unsafe?.metadata }
 					);
 				}
 				const message = await helpIfErrorIsSizeOrScriptStartup(

@@ -4102,18 +4102,19 @@ addEventListener('fetch', event => {});`
 			await runWrangler("deploy");
 
 			expect(std.info).toMatchInlineSnapshot(`
-			"Attaching additional modules:
-			Fetching list of already uploaded assets...
-			Building list of assets to upload...
-			 + file-1.2ca234f380.text (uploading new version of file-1.text)
-			 + file-2.5938485188.text (uploading new version of file-2.text)
-			Uploading 2 new assets...
-			Uploaded 100% [2 out of 2]"
-		`);
+				"Fetching list of already uploaded assets...
+				Building list of assets to upload...
+				 + file-1.2ca234f380.text (uploading new version of file-1.text)
+				 + file-2.5938485188.text (uploading new version of file-2.text)
+				Uploading 2 new assets...
+				Uploaded 100% [2 out of 2]
+				Attaching additional modules:"
+			`);
 			expect(std.out).toMatchInlineSnapshot(`
 				"
 				 ⛅️ wrangler x.x.x
 				──────────────────
+				↗️  Done syncing assets
 				┌─┬─┬─┐
 				│ Name │ Type │ Size │
 				├─┼─┼─┤
@@ -4127,7 +4128,6 @@ addEventListener('fetch', event => {});`
 				├─┼─┼─┤
 				│ Total (4 modules) │ │ xx KiB │
 				└─┴─┴─┘
-				↗️  Done syncing assets
 				Total Upload: xx KiB / gzip: xx KiB
 				Worker Startup Time: 100 ms
 				Uploaded test-name (TIMINGS)
@@ -9277,9 +9277,12 @@ addEventListener('fetch', event => {});`
 				env.ENV_VAR_TWO (\\"Hello, I'm an environment variable\\")                                       Environment Variable
 				env.WASM_MODULE_ONE (some_wasm.wasm)                                                         Wasm Module
 				env.WASM_MODULE_TWO (more_wasm.wasm)                                                         Wasm Module
-				env.extra_data (\\"interesting value\\")                                                         Unsafe Metadata
-				env.more_data (\\"dubious value\\")                                                              Unsafe Metadata
 
+				The following unsafe metadata will be attached to your Worker:
+				{
+				  \\"extra_data\\": \\"interesting value\\",
+				  \\"more_data\\": \\"dubious value\\"
+				}
 				Uploaded test-name (TIMINGS)
 				Deployed test-name triggers (TIMINGS)
 				  https://test-name.test-sub-domain.workers.dev
@@ -11043,12 +11046,14 @@ addEventListener('fetch', event => {});`
 						──────────────────
 						Total Upload: xx KiB / gzip: xx KiB
 						Worker Startup Time: 100 ms
-						Your Worker has access to the following bindings:
-						Binding                               Resource
-						env.stringify (true)                  Unsafe Metadata
-						env.something (\\"else\\")                Unsafe Metadata
-						env.nested ({\\"stuff\\":\\"here\\"})         Unsafe Metadata
-
+						The following unsafe metadata will be attached to your Worker:
+						{
+						  \\"stringify\\": true,
+						  \\"something\\": \\"else\\",
+						  \\"nested\\": {
+						    \\"stuff\\": \\"here\\"
+						  }
+						}
 						Uploaded test-name (TIMINGS)
 						Deployed test-name triggers (TIMINGS)
 						  https://test-name.test-sub-domain.workers.dev

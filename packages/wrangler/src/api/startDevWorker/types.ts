@@ -47,8 +47,6 @@ import type {
 	Json,
 	Miniflare,
 	NodeJSCompatMode,
-	Request,
-	Response,
 } from "miniflare";
 import type * as undici from "undici";
 
@@ -269,11 +267,6 @@ export type Bundle = EsbuildBundle;
 
 export type LogLevel = "debug" | "info" | "log" | "warn" | "error" | "none";
 
-export type File<Contents = string, Path = string> =
-	| { path: Path } // `path` resolved relative to cwd
-	| { contents: Contents; path?: Path }; // `contents` used instead, `path` can be specified if needed e.g. for module resolution
-export type BinaryFile = File<Uint8Array>; // Note: Node's `Buffer`s are instances of `Uint8Array`
-
 type QueueConsumer = NonNullable<Config["queues"]["consumers"]>[number];
 
 export type Trigger =
@@ -285,10 +278,16 @@ export type Trigger =
 	| { type: "cron"; cron: string }
 	| ({ type: "queue-consumer" } & QueueConsumer);
 
+export type File<Contents = string, Path = string> =
+	| { path: Path } // `path` resolved relative to cwd
+	| { contents: Contents; path?: Path }; // `contents` used instead, `path` can be specified if needed e.g. for module resolution
+export type BinaryFile = File<Uint8Array>; // Note: Node's `Buffer`s are instances of `Uint8Array`
+
 type BindingOmit<T> = Omit<T, "binding">;
 type NameOmit<T> = Omit<T, "name">;
 export type Binding =
 	| { type: "plain_text"; value: string }
+	| { type: "secret_text"; value: string }
 	| { type: "json"; value: Json }
 	| ({ type: "kv_namespace" } & BindingOmit<CfKvNamespace>)
 	| ({ type: "send_email" } & NameOmit<CfSendEmailBindings>)

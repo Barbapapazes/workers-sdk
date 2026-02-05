@@ -23,8 +23,9 @@ export function getLocalDevVarsForPreview(
 	const dotDevDotVarsEntries = Array.from(Object.entries(dotDevDotVars));
 	if (dotDevDotVarsEntries.length > 0) {
 		const dotDevDotVarsContent = dotDevDotVarsEntries
-			.map(([key, value]) => {
-				return `${key} = "${value?.toString().replaceAll(`"`, `\\"`)}"\n`;
+			.map(([key, binding]: [string, wrangler.unstable_VarBinding]) => {
+				// Extract the value from the binding object
+				return `${key} = "${binding.value?.toString().replaceAll(`"`, `\\"`)}"\n`;
 			})
 			.join("");
 		return dotDevDotVarsContent;

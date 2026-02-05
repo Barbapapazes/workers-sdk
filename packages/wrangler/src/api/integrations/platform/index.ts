@@ -21,6 +21,7 @@ import { logger } from "../../../logger";
 import { getSiteAssetPaths } from "../../../sites";
 import { dedent } from "../../../utils/dedent";
 import { maybeStartOrUpdateRemoteProxySession } from "../../remoteBindings";
+import { extractBindingsOfType } from "../../startDevWorker/utils";
 import { CacheStorage } from "./caches";
 import { ExecutionContext } from "./executionContext";
 // TODO: import from `@cloudflare/workers-utils` after migrating to `tsdown`
@@ -40,7 +41,10 @@ import type {
 	WorkerOptions,
 } from "miniflare";
 
-export { getVarsForDev as unstable_getVarsForDev } from "../../../dev/dev-vars";
+export {
+	getVarsForDev as unstable_getVarsForDev,
+	type VarBinding as unstable_VarBinding,
+} from "../../../dev/dev-vars";
 export { readConfig as unstable_readConfig };
 export { getDurableObjectClassNameToUseSQLiteMap as unstable_getDurableObjectClassNameToUseSQLiteMap };
 
@@ -214,7 +218,7 @@ async function getMiniflareOptionsFromConfig(args: {
 		options.environment,
 		options.envFiles,
 		true,
-		{}
+		undefined
 	);
 
 	if (config["durable_objects"]) {
@@ -239,7 +243,10 @@ async function getMiniflareOptionsFromConfig(args: {
 				`);
 
 		// Remove workflows from bindings to prevent Miniflare from complaining
-		bindings.workflows = [];
+		const workflowBindings = extractBindingsOfType("workflow", bindings);
+		for (const workflow of workflowBindings) {
+			delete bindings?.[workflow.binding];
+		}
 	}
 
 	const { bindingOptions, externalWorkers } = buildMiniflareBindingOptions(
@@ -248,7 +255,6 @@ async function getMiniflareOptionsFromConfig(args: {
 			complianceRegion: config.compliance_region,
 			bindings,
 			queueConsumers: undefined,
-			services: bindings.services,
 			serviceBindings: {},
 			migrations: config.migrations,
 			tails: [],
@@ -402,7 +408,7 @@ export function unstable_getMiniflareWorkerOptions(
 	const containerDOClassNames = new Set(
 		config.containers?.map((c) => c.class_name)
 	);
-	const bindings = getBindings(config, env, options?.envFiles, true, {});
+	const bindings = getBindings(config, env, options?.envFiles, true, undefined);
 
 	const enableContainers =
 		options?.overrides?.enableContainers !== undefined
@@ -415,7 +421,6 @@ export function unstable_getMiniflareWorkerOptions(
 			complianceRegion: config.compliance_region,
 			bindings,
 			queueConsumers: config.queues.consumers,
-			services: [],
 			serviceBindings: {},
 			migrations: config.migrations,
 			tails: config.tail_consumers,
@@ -433,9 +438,10 @@ export function unstable_getMiniflareWorkerOptions(
 	// `durableObjects` to use more traditional Miniflare config expecting the
 	// user to define workers with the required names in the `workers` array.
 	// These will run the same `workerd` processes as tests.
-	if (bindings.services !== undefined) {
+	const serviceBindings = extractBindingsOfType("service", bindings);
+	if (serviceBindings.length > 0) {
 		bindingOptions.serviceBindings = Object.fromEntries(
-			bindings.services.map((binding) => {
+			serviceBindings.map((binding) => {
 				const name =
 					binding.service === config.name ? kCurrentWorker : binding.service;
 				if (options?.remoteProxyConnectionString && binding.remote) {
@@ -452,7 +458,11 @@ export function unstable_getMiniflareWorkerOptions(
 			})
 		);
 	}
-	if (bindings.durable_objects !== undefined) {
+	const durableObjectBindings = extractBindingsOfType(
+		"durable_object_namespace",
+		bindings
+	);
+	if (durableObjectBindings.length > 0) {
 		type DurableObjectDefinition = NonNullable<
 			typeof bindingOptions.durableObjects
 		>[string];
@@ -462,7 +472,7 @@ export function unstable_getMiniflareWorkerOptions(
 		);
 
 		bindingOptions.durableObjects = Object.fromEntries(
-			bindings.durable_objects.bindings.map((binding) => {
+			durableObjectBindings.map((binding) => {
 				const useSQLite = classNameToUseSQLite.get(binding.class_name);
 				return [
 					binding.name,
